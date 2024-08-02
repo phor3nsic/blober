@@ -14,3 +14,17 @@ pipx install git+https://github.com/phor3nsic/blober
 ```sh
 pip install git+https://github.com/phor3nsic/blober
 ```
+### Usage:
+
+Help
+
+```sh
+Usage: blober <operation> <container_url> [<blob_name> <file_path>]
+operation: list, upload, delete
+```
+
+Example:
+
+```sh
+blober list https://myblob.blob.core.windows.net/example
+```
