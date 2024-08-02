@@ -79,7 +79,7 @@ def delete_blob(container_url, blob_name):
 
 def main():
     if len(sys.argv) < 3:
-        print("Usage: python blob_operations.py <operation> <container_url> [<blob_name> <file_path>]")
+        print("Usage: blober <operation> <container_url> [<blob_name> <file_path>]")
         print("operation: list, upload, delete")
         sys.exit(1)
 
@@ -90,14 +90,14 @@ def main():
         list_blob_urls(container_url)
     elif operation == "upload":
         if len(sys.argv) != 5:
-            print("Usage: python blob_operations.py upload <container_url> <blob_name> <file_path>")
+            print("Usage: blober upload <container_url> <blob_name> <file_path>")
             sys.exit(1)
         blob_name = sys.argv[3]
         file_path = sys.argv[4]
         upload_blob(container_url, blob_name, file_path)
     elif operation == "delete":
         if len(sys.argv) != 4:
-            print("Usage: python blob_operations.py delete <container_url> <blob_name>")
+            print("Usage: blober delete <container_url> <blob_name>")
             sys.exit(1)
         blob_name = sys.argv[3]
         delete_blob(container_url, blob_name)
