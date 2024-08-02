@@ -5,7 +5,8 @@ setup(
     version='0.1',
     packages=find_packages(),
     install_requires=[
-        "azure-storage-blob"
+        "azure-storage-blob",
+        "boto3"
     ],  # requirements.txt
     entry_points={
         'console_scripts': [
