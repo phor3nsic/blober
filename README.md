@@ -1,6 +1,9 @@
 # blober
 
-Script to test AZURE blober and AWS buckets permitions
+Script to test permissions:
+
+- Azure Blob Storage
+- Amazon bucket S3 
 
 ### Install
 
@@ -14,6 +17,7 @@ pipx install git+https://github.com/phor3nsic/blober
 ```sh
 pip install git+https://github.com/phor3nsic/blober
 ```
+
 ### Usage:
 
 Help

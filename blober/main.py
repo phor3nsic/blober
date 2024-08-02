@@ -7,7 +7,6 @@ from azure.storage.blob import BlobServiceClient, ContainerClient, BlobClient
 
 # COLOURS
 RED='\033[0;31m'
-WHITE='\033[0;37m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
@@ -27,15 +26,14 @@ def check_bucket_permissions(bucket_name):
     except ClientError as e:
         print(f"[-] File list NOT permited to bucket {bucket_name}: {e}")
 
-    # Teste de upload de arquivo
     try:
         s3.put_object(Bucket=bucket_name, Key='test_upload_file.txt', Body=b'This is a test file.')
         permissions['upload'] = True
         print(f"[+] {RED} Upload permited to bucket {bucket_name} {NC}")
+        print(f"[i] Open the link {GREEN}https://{bucket_name}.s3.amazonaws.com/test_upload_file.txt{NC} to see your file")
     except ClientError as e:
         print(f"[-] Upload NOT permited to bucket {bucket_name}: {e}")
 
-    # Teste de remoção de arquivo
     try:
         s3.delete_object(Bucket=bucket_name, Key='test_upload_file.txt')
         permissions['delete'] = True
