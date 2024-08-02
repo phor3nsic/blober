@@ -1,0 +1,6 @@
+*venv*
+venv/*
+build/*
+*build*
+*blober.egg-info*
+blober.egg-info/*
