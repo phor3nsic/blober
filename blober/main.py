@@ -2,8 +2,12 @@ import sys
 import os
 import argparse
 import boto3
+import requests
+
+from google.cloud import storage
 from botocore.exceptions import NoCredentialsError, PartialCredentialsError, ClientError
-from azure.storage.blob import BlobServiceClient, ContainerClient, BlobClient
+from google.api_core.exceptions import Forbidden, NotFound
+
 
 # COLOURS
 RED='\033[0;31m'
@@ -43,112 +47,89 @@ def check_bucket_permissions(bucket_name):
 
     return permissions
 
-def list_blob_urls(container_url):
+def check_blob_permissions(container_url):
+    permissions = {
+        'list': False
+    }
+
     try:
-        parsed_url = container_url.split('/')
-        account_url = '/'.join(parsed_url[:3])
-        container_name = parsed_url[3] if len(parsed_url) > 3 else ''
+        # https://{name}.blob.core.windows.net/{containername}
+        list_url = f"{container_url}?restype=container&comp=list"
         
-        if not container_name:
-            raise ValueError("[i] Name of container not specified in url.")
-
-        blob_service_client = BlobServiceClient(account_url=account_url)
-        
-        container_client = blob_service_client.get_container_client(container_name)
-        
-        blob_list = container_client.list_blobs()
-
-        for blob in blob_list:
-            blob_url = f"{container_url}/{blob.name}"
-            print(blob_url)
+        # Teste de listagem de blobs no container
+        list_response = requests.get(list_url)
+        if list_response.status_code == 200:
+            permissions['list'] = True
+            print(f"[+] {RED}Listing blobs is permitted for container at {GREEN}{container_url} {NC}")
+        else:
+            print(f"[-] Listing blobs is NOT permitted for container at {container_url}: HTTP {list_response.status_code}")
 
     except Exception as e:
-        print(f"[-] Error to list blobs: {e}")
+        print(f"An error occurred: {e}")
 
-def upload_blob(container_url, blob_name, file_path):
+    return permissions
+
+def check_google_bucket_permissions(bucket_name):
+    permissions = {
+        'list': False,
+        'upload': False,
+        'delete': False
+    }
+
     try:
-        parsed_url = container_url.split('/')
-        account_url = '/'.join(parsed_url[:3])
-        container_name = parsed_url[3] if len(parsed_url) > 3 else ''
-        
-        if not container_name:
-            raise ValueError("[i] Name of container not specified in url.")
-        
-        # Conecte-se ao serviço de blobs
-        blob_service_client = BlobServiceClient(account_url=account_url)
-        
-        # Obtenha o cliente do contêiner
-        container_client = blob_service_client.get_container_client(container_name)
-        
-        # Obtenha o cliente do blob
-        blob_client = container_client.get_blob_client(blob_name)
-        
-        # Faça upload do arquivo
-        with open(file_path, "rb") as data:
-            blob_client.upload_blob(data, overwrite=True)
-        
-        print(f"[!] {RED}Upload of {file_path} to {blob_client.url} finish with success.{NC}")
+        client = storage.Client()
+        bucket = client.get_bucket(bucket_name)
+
+        # Test listing objects
+        try:
+            blobs = list(bucket.list_blobs())
+            permissions['list'] = True
+            print(f"[+] {RED}Listing objects permitted for bucket {GREEN}{bucket_name}{NC}")
+        except Forbidden as e:
+            print(f"[-] Listing objects NOT permitted for bucket {bucket_name}: {e}")
+
+        # Test uploading an object
+        try:
+            blob = bucket.blob('test_upload_file.txt')
+            blob.upload_from_string('This is a test file.')
+            permissions['upload'] = True
+            print(f"[+] {RED}Upload permitted to bucket {GREEN}{bucket_name}{NC}")
+            print(f"[i] Open the link to see your file: {GREEN}https://storage.googleapis.com/{bucket_name}/test_upload_file.txt{NC}")
+        except Forbidden as e:
+            print(f"[-] Upload NOT permitted to bucket {bucket_name}: {e}")
+
+        # Test deleting the object
+        try:
+            blob.delete()
+            permissions['delete'] = True
+            print(f"[+] Deleting objects permitted for bucket {bucket_name}")
+        except (Forbidden, NotFound) as e:
+            print(f"[-] Deleting objects NOT permitted for bucket {bucket_name}: {e}")
 
     except Exception as e:
-        print(f"[i] Error to upload files to blob: {e}")
+        print(f"An error occurred: {e}")
 
-def delete_blob(container_url, blob_name):
-    try:
-        parsed_url = container_url.split('/')
-        account_url = '/'.join(parsed_url[:3])
-        container_name = parsed_url[3] if len(parsed_url) > 3 else ''
-        
-        if not container_name:
-            raise ValueError("[i] Name of container not specified in url.")
-        
-        blob_service_client = BlobServiceClient(account_url=account_url)
-        
-
-        container_client = blob_service_client.get_container_client(container_name)
-        
-
-        blob_client = container_client.get_blob_client(blob_name)
-        
-
-        blob_client.delete_blob()
-        
-        print(f"[+] {RED}Blob {blob_name} deleted of {container_url}.{NC}")
-
-    except Exception as e:
-        print(f"[i] Error to delete blob: {e}")
+    return permissions
 
 def main():
     parser = argparse.ArgumentParser(add_help=True)
-    parser.add_argument("enviroment", help="Enviroment to test: aws/azure")
-    parser.add_argument("-op","--operation", help="Operations to azure test: list,upload,delete")
-    parser.add_argument("-t", "--target", help="Target to check, EX: AWS - only name of bucket / AZURE - url of container", required=True)
-    parser.add_argument("-n", "--blob_name", help="Name of blob (only for azure)")
-    parser.add_argument("-f","--file", help="File to upload")
+    parser.add_argument("enviroment", help="Enviroment to test: aws/azure/google")
+    parser.add_argument("-t", "--target", help="Target to check, EX: AWS/GOOGLE - only name of bucket / AZURE - url of container ", required=True)
     args = parser.parse_args()
 
-    
-
     if args.enviroment == "azure":
-        operation = args.operation
-        container_url = args.target
-        if operation == "list":
-            list_blob_urls(container_url)
-        elif operation == "upload":
-            blob_name = args.blob_name
-            file_path = args.file
-            upload_blob(container_url, blob_name, file_path)
-        elif operation == "delete":
-            blob_name = args.blob_name
-            delete_blob(container_url, blob_name)
-        else:
-            print("Invalid Operation. Use: list, upload, delete")
-            sys.exit(1)
+        check_blob_permissions(args.target)
+        
     elif args.enviroment == "aws":
         bucket = args.target
         check_bucket_permissions(bucket)
 
+    elif args.enviroment == "google":
+        bucket_name =args.target
+        check_bucket_permissions(bucket_name)
+
     else:
-        print("Invalid type. Use: aws or azure")
+        print("Invalid type. Use: aws/azure/google")
 
 
 if __name__ == "__main__":
