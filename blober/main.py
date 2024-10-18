@@ -14,36 +14,95 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 NC='\033[0m'
 
-def check_bucket_permissions(bucket_name):
+def permited(text):
+    print(f'{RED}{text}{NC}')
+
+# Ref: https://blog.intigriti.com/hacking-tools/hacking-misconfigured-aws-s3-buckets-a-complete-guide
+def check_bucket_permissions(bucket_name, email=None):
     s3 = boto3.client('s3')
 
     permissions = {
         'list': False,
         'upload': False,
-        'delete': False
+        'delete': False,
+        'get_object': False,
+        'get_bucket_acl': False,
+        'get_object_acl': False,
+        'put_bucket_acl': False,
+        'get_bucket_versioning': False
     }
 
+    # Test list permission
     try:
         s3.list_objects_v2(Bucket=bucket_name)
         permissions['list'] = True
-        print(f"[+] {RED}File list permited to bucket {bucket_name}{NC}")
+        permited(f"[+] File list permitted to bucket {bucket_name}")
     except ClientError as e:
-        print(f"[-] File list NOT permited to bucket {bucket_name}: {e}")
+        print(f"[-] File list NOT permitted to bucket {bucket_name}: {e}")
 
+    # Test upload permission
     try:
         s3.put_object(Bucket=bucket_name, Key='test_upload_file.txt', Body=b'This is a test file.')
         permissions['upload'] = True
-        print(f"[+] {RED} Upload permited to bucket {bucket_name} {NC}")
-        print(f"[i] Open the link {GREEN}https://{bucket_name}.s3.amazonaws.com/test_upload_file.txt{NC} to see your file")
+        permited(f"[+] Upload permitted to bucket {bucket_name}")
+        permited(f"[i] Open the link https://{bucket_name}.s3.amazonaws.com/test_upload_file.txt to see your file")
     except ClientError as e:
-        print(f"[-] Upload NOT permited to bucket {bucket_name}: {e}")
+        print(f"[-] Upload NOT permitted to bucket {bucket_name}: {e}")
 
+    # Test delete permission
     try:
         s3.delete_object(Bucket=bucket_name, Key='test_upload_file.txt')
         permissions['delete'] = True
-        print(f"[+] {RED}Remove file permited to bucket {bucket_name}{NC}")
+        permited(f"[+] Remove file permitted to bucket {bucket_name}")
     except ClientError as e:
-        print(f"[-] Remove file NOT permited to bucket {bucket_name}: {e}")
+        print(f"[-] Remove file NOT permitted to bucket {bucket_name}: {e}")
+
+    # Test get object permission (try to download 'index.html')
+    try:
+        s3.download_file(bucket_name, 'index.html', '/tmp/index.html')
+        permissions['get_object'] = True
+        permited(f"[+] Get object 'index.html' permitted from bucket {bucket_name}")
+    except ClientError as e:
+        print(f"[-] Get object 'index.html' NOT permitted from bucket {bucket_name}: {e}")
+
+    # Test get bucket ACL
+    try:
+        acl = s3.get_bucket_acl(Bucket=bucket_name)
+        permissions['get_bucket_acl'] = True
+        permited(f"[+] Get bucket ACL permitted for bucket {bucket_name}")
+        permited(f"ACL: {acl}")
+    except ClientError as e:
+        print(f"[-] Get bucket ACL NOT permitted for bucket {bucket_name}: {e}")
+
+    # Test get object ACL (for 'index.html')
+    try:
+        acl = s3.get_object_acl(Bucket=bucket_name, Key='index.html')
+        permissions['get_object_acl'] = True
+        permited(f"[+] Get object ACL permitted for 'index.html' in bucket {bucket_name}")
+        permited(f"ACL: {acl}")
+    except ClientError as e:
+        print(f"[-] Get object ACL NOT permitted for 'index.html' in bucket {bucket_name}: {e}")
+
+    # Test put bucket ACL (grant full control to a specific email)
+    if email:
+        try:
+            s3.put_bucket_acl(
+                Bucket=bucket_name,
+                GrantFullControl=f'emailaddress={email}'
+            )
+            permissions['put_bucket_acl'] = True
+            permited(f"[+] Put bucket ACL permitted for bucket {bucket_name} (Granted full control to {email})")
+        except ClientError as e:
+            print(f"[-] Put bucket ACL NOT permitted for bucket {bucket_name}: {e}")
+
+    # Test get bucket versioning
+    try:
+        versioning = s3.get_bucket_versioning(Bucket=bucket_name)
+        permissions['get_bucket_versioning'] = True
+        permited(f"[+] Get bucket versioning permitted for bucket {bucket_name}")
+        permited(f"Versioning: {versioning}")
+    except ClientError as e:
+        print(f"[-] Get bucket versioning NOT permitted for bucket {bucket_name}: {e}")
 
     return permissions
 
