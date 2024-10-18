@@ -29,6 +29,7 @@ def check_bucket_permissions(bucket_name, email=None):
         'get_bucket_acl': False,
         'get_object_acl': False,
         'put_bucket_acl': False,
+        'put_object_acl': False,
         'get_bucket_versioning': False
     }
 
@@ -89,6 +90,18 @@ def check_bucket_permissions(bucket_name, email=None):
             s3.put_bucket_acl(
                 Bucket=bucket_name,
                 GrantFullControl=f'emailaddress={email}'
+            )
+            permissions['put_bucket_acl'] = True
+            permited(f"[+] Put bucket ACL permitted for bucket {bucket_name} (Granted full control to {email})")
+        except ClientError as e:
+            print(f"[-] Put bucket ACL NOT permitted for bucket {bucket_name}: {e}")
+    
+    if email:
+        try:
+            s3.put_object_acl(
+                Bucket=bucket_name,
+                GrantFullControl=f'emailaddress={email}',
+                Key='index.html'
             )
             permissions['put_bucket_acl'] = True
             permited(f"[+] Put bucket ACL permitted for bucket {bucket_name} (Granted full control to {email})")
@@ -174,6 +187,7 @@ def main():
     parser = argparse.ArgumentParser(add_help=True)
     parser.add_argument("enviroment", help="Enviroment to test: aws/azure/google")
     parser.add_argument("-t", "--target", help="Target to check, EX: AWS/GOOGLE - only name of bucket / AZURE - url of container ", required=True)
+    parser.add_argument("-e", "--email", help="Email to try ACL permissions")
     args = parser.parse_args()
 
     if args.enviroment == "azure":
@@ -181,7 +195,8 @@ def main():
         
     elif args.enviroment == "aws":
         bucket = args.target
-        check_bucket_permissions(bucket)
+        email = args.email
+        check_bucket_permissions(bucket,email)
 
     elif args.enviroment == "google":
         bucket_name =args.target
